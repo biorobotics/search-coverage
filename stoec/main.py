@@ -5,6 +5,7 @@
 # ///   Date:           <Oct 13th 2017>
 # ///   Revision History: ---
 # ///-----------------------------------------------------------------
+import rospy
 import numpy as np
 from numpy import matlib
 from collections import namedtuple 
@@ -19,6 +20,9 @@ from GenerateUtilityMap import GenerateUtilityMap
 from GetFourierCoeff import GetFourierCoeff
 from evaluateBhattacharyyaDist import evaluateBhattacharyyaDist
 from gen_traj_CE import gen_traj_CE
+from std_msgs.msg import Float32
+from std_msgs.msg import Float32MultiArray
+from geometry_msgs.msg import Pose2D
 # from plot_initial import plot_initial
 
 def initialize_gen_traj_CE():
@@ -73,126 +77,137 @@ def initialize_gen_traj_CE():
 	return opt,ce
 
 if __name__ == "__main__":
+
+	pub = rospy.Publisher('/robot_traj', Pose2D, queue_size=10)
+	rospy.init_node('search_coverage_node', anonymous=False)
+	point_temp = Pose2D()
+	while not rospy.is_shutdown():
+
+		agents=namedtuple('agents',['xi','xps','trajFigOPTIMAL','trajFig'])
+		gp_model=namedtuple('gaussian_processes',['mean','cov','lik','inf'])
+		erg=namedtuple('ergodicity',['mu','Nkx','Nky','muk','Ck','HK'])
 		
-	agents=namedtuple('agents',['xi','xps','trajFigOPTIMAL','trajFig'])
-	gp_model=namedtuple('gaussian_processes',['mean','cov','lik','inf'])
-	erg=namedtuple('ergodicity',['mu','Nkx','Nky','muk','Ck','HK'])
-	
-	opt,ce=initialize_gen_traj_CE()
-	
-	opt.algorithm = 'KL' #'KL --> KL_STOEC in the paper' - 'ergodic --> ergodic_STOEC in the paper'
-	opt.sensorMode = 'smallFootPrint' #choose between 'smallFootPrint' and 'largeFootPrint' if using KL
-	
-	img=cv2.imread('obstacleMap.png',0) #read image
-	#img=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) #covert it from rgb to gray scale ,,its already gray(0 in cv2.imread for gray/1 for colored )
-	img=cv2.normalize(img.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX) #normalize 
-	img=cv2.resize(img,(opt.ng[0],opt.ng[1]), interpolation=cv2.INTER_LINEAR) 
-	img=np.flipud(img)
-	opt.image=img
-
-	img2=cv2.imread('infoMapwithObstacles.png',1)
-	img2=cv2.normalize(img2.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)
-	img2=cv2.resize(img,(opt.ng[0],opt.ng[1]), interpolation=cv2.INTER_LINEAR) 
-	opt.mapWithObstacles=img2
-	# embed()
-	X,Y,utility=GenerateUtilityMap(opt.xmin,opt.xmax,opt.ymin,opt.ymax)
-
-	utility=np.matrix(np.reshape(utility,X.shape))
-	temp=np.matrix(np.ones(img.shape)-img)
-	utility=np.matrix(np.multiply(utility,temp),)
-	
-	opt.X=np.matrix(X)
-	opt.Y=np.matrix(Y)
-	opt.Z=np.matrix(np.zeros(X.shape))
-
-	opt.xss=np.matrix(np.zeros((X.size,3))) 
-	opt.xss[:,0]=np.reshape(X,(X.size,1),'F')
-	opt.xss[:,1]=np.reshape(Y,(X.size,1),'F')
-	opt.xss[:,2]=np.reshape(opt.Z,(X.size,1),'F')
-
-	opt.utility=utility/utility.sum()
-	opt.nagents=1
-	
-	agents.xi=np.matrix([[120,30,0,90*pi/180],[130,130,0,270*pi/180],[30,120,0,270*pi/180]])
-	agents.xps=agents.xi
-	
-	opt.colors=['m','k','w']
-	opt.kdOBJ=spatial.KDTree(opt.xss[:,0:2])
-	#####initialize ergodicity###############
-	erg.mu=opt.utility
-
-	Nk=10
-	erg.Nkx=Nk
-	erg.Nky=Nk
-
-	erg.muk=GetFourierCoeff(erg.mu,erg.Nkx,erg.Nky,opt.Lx,opt.Ly,X,Y)
-	erg.Ck=np.matrix(np.zeros((Nk,Nk)))
-
-	#####initialize GP###############
-	sn=0.01
-	ell=7
-	sf=sqrt(1)
-	Ncg=30
-	gp_para_lik=log(sn)
-	gp_para_cov=np.log(np.matrix([ell,sf]).T)
-	fmu=np.zeros((opt.xss[:,1]).shape)
-	fs2=np.zeros((opt.xss[:,1]).shape)
-	Lx=opt.ng[0]
-	Ly=opt.ng[1]
-
-	opt.traj_stat=np.zeros((Lx,Ly))
-	
-	# opt,agents,ce.Fig=plot_initial(opt,agents)
-	
-	t=time.time()
-	BhattDistance=np.zeros((opt.stages,1))
-	save_traj_stat=np.zeros((150*150,opt.stages))
-	euclidean_dist=np.zeros((opt.stages,1))
-	
-	full_trajectory = []
-	for k in range(0,opt.stages):#####look if k from 0 or 1
-		opt.currentStage=k
+		opt,ce=initialize_gen_traj_CE()
 		
-		for iagent in range(0,opt.nagents):
-			opt.iagent=iagent
+		opt.algorithm = 'KL' #'KL --> KL_STOEC in the paper' - 'ergodic --> ergodic_STOEC in the paper'
+		opt.sensorMode = 'smallFootPrint' #choose between 'smallFootPrint' and 'largeFootPrint' if using KL
+		
+		img=cv2.imread('obstacleMap.png',0) #read image
+		#img=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) #covert it from rgb to gray scale ,,its already gray(0 in cv2.imread for gray/1 for colored )
+		img=cv2.normalize(img.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX) #normalize 
+		img=cv2.resize(img,(opt.ng[0],opt.ng[1]), interpolation=cv2.INTER_LINEAR) 
+		img=np.flipud(img)
+		opt.image=img
 
-			opt,ce,xs=gen_traj_CE(opt,ce,agents,erg)
-			
-			#plotting
-			# embed()
-			xf=xs[-1,:]
-			agents.xi[iagent]=xf
-			# agents.xps[iagent]=np.concatenate(agents.xps[iagent],np.xs[1:,:])
-			full_trajectory = full_trajectory + xs.tolist()
-			
-			plt.figure(1)
-			
-			plt.title('Optimal trajectory')
-			
-			
-				
-			
-			plt.plot(np.array(full_trajectory)[:,0],np.array(full_trajectory)[:,1])
-			plt.axis((opt.xmin,opt.xmax,opt.ymin,opt.ymax))
-
-
-			if opt.algorithm=='ergodic':
-				erg=accumulate_CK(opt,erg,xs)
-
-			#if opt.sensorMode=='largeFootPrint' and opt.algorithm=='KL':
-				#gp
-				
-
-			if opt.algorithm=='KL' and opt.sensorMode=='smallFootPrint' or opt.algorithm=='ergodic':
-				
-				nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(opt.kdOBJ.data)
-				traj = xs
-				distances, ind = nbrs.kneighbors(np.matrix(traj[:,0:2]))
-				opt.traj_stat=opt.traj_stat +np.reshape(np.bincount(ind.T[-1],minlength=opt.traj_stat.size),(Lx,Ly),'F')
-				#plotting
+		img2=cv2.imread('infoMapwithObstacles.png',1)
+		img2=cv2.normalize(img2.astype('float'), None, 0.0, 1.0, cv2.NORM_MINMAX)
+		img2=cv2.resize(img,(opt.ng[0],opt.ng[1]), interpolation=cv2.INTER_LINEAR) 
+		opt.mapWithObstacles=img2
 		# embed()
-		traj_stat_normalized=opt.traj_stat/opt.traj_stat.sum()
-		save_traj_stat[:,k]=np.reshape(traj_stat_normalized,(traj_stat_normalized.size,1),'F').T  
-		euclidean_dist[k,0]=np.square(traj_stat_normalized-opt.utility).sum()
-		BhattDistance[k,0]=evaluateBhattacharyyaDist(traj_stat_normalized,erg.mu)
-		plt.pause(0.01)
+		X,Y,utility=GenerateUtilityMap(opt.xmin,opt.xmax,opt.ymin,opt.ymax)
+
+		utility=np.matrix(np.reshape(utility,X.shape))
+		temp=np.matrix(np.ones(img.shape)-img)
+		utility=np.matrix(np.multiply(utility,temp),)
+		
+		opt.X=np.matrix(X)
+		opt.Y=np.matrix(Y)
+		opt.Z=np.matrix(np.zeros(X.shape))
+
+		opt.xss=np.matrix(np.zeros((X.size,3))) 
+		opt.xss[:,0]=np.reshape(X,(X.size,1),'F')
+		opt.xss[:,1]=np.reshape(Y,(X.size,1),'F')
+		opt.xss[:,2]=np.reshape(opt.Z,(X.size,1),'F')
+
+		opt.utility=utility/utility.sum()
+		opt.nagents=1
+		
+		agents.xi=np.matrix([[120,30,0,90*pi/180],[130,130,0,270*pi/180],[30,120,0,270*pi/180]])
+		agents.xps=agents.xi
+		
+		opt.colors=['m','k','w']
+		opt.kdOBJ=spatial.KDTree(opt.xss[:,0:2])
+		#####initialize ergodicity###############
+		erg.mu=opt.utility
+
+		Nk=10
+		erg.Nkx=Nk
+		erg.Nky=Nk
+
+		erg.muk=GetFourierCoeff(erg.mu,erg.Nkx,erg.Nky,opt.Lx,opt.Ly,X,Y)
+		erg.Ck=np.matrix(np.zeros((Nk,Nk)))
+
+		#####initialize GP###############
+		sn=0.01
+		ell=7
+		sf=sqrt(1)
+		Ncg=30
+		gp_para_lik=log(sn)
+		gp_para_cov=np.log(np.matrix([ell,sf]).T)
+		fmu=np.zeros((opt.xss[:,1]).shape)
+		fs2=np.zeros((opt.xss[:,1]).shape)
+		Lx=opt.ng[0]
+		Ly=opt.ng[1]
+
+		opt.traj_stat=np.zeros((Lx,Ly))
+		
+		# opt,agents,ce.Fig=plot_initial(opt,agents)
+		
+		t=time.time()
+		BhattDistance=np.zeros((opt.stages,1))
+		save_traj_stat=np.zeros((150*150,opt.stages))
+		euclidean_dist=np.zeros((opt.stages,1))
+		
+		full_trajectory = []
+		for k in range(0,opt.stages):#####look if k from 0 or 1
+			opt.currentStage=k
+			
+			for iagent in range(0,opt.nagents):
+				opt.iagent=iagent
+
+				opt,ce,xs=gen_traj_CE(opt,ce,agents,erg)
+				
+				#plotting
+				# embed()
+				xf=xs[-1,:]
+				agents.xi[iagent]=xf
+				# agents.xps[iagent]=np.concatenate(agents.xps[iagent],np.xs[1:,:])
+				full_trajectory = full_trajectory + xs.tolist()
+				
+				plt.figure(1)
+				
+				plt.title('Optimal trajectory')
+				
+				tempx = np.array(full_trajectory)[:,0]
+				tempy = np.array(full_trajectory)[:,1]
+				print(tempx)
+				for indx in range(len(tempx)):
+					point_temp.x = tempx
+			        point_temp.y = tempy
+			        point_temp.theta = 0
+					pub.pubish(point_temp)
+				
+				plt.plot(np.array(full_trajectory)[:,0],np.array(full_trajectory)[:,1])
+				plt.axis((opt.xmin,opt.xmax,opt.ymin,opt.ymax))
+
+
+				if opt.algorithm=='ergodic':
+					erg=accumulate_CK(opt,erg,xs)
+
+				#if opt.sensorMode=='largeFootPrint' and opt.algorithm=='KL':
+					#gp
+					
+
+				if opt.algorithm=='KL' and opt.sensorMode=='smallFootPrint' or opt.algorithm=='ergodic':
+					
+					nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(opt.kdOBJ.data)
+					traj = xs
+					distances, ind = nbrs.kneighbors(np.matrix(traj[:,0:2]))
+					opt.traj_stat=opt.traj_stat +np.reshape(np.bincount(ind.T[-1],minlength=opt.traj_stat.size),(Lx,Ly),'F')
+					#plotting
+			# embed()
+			traj_stat_normalized=opt.traj_stat/opt.traj_stat.sum()
+			save_traj_stat[:,k]=np.reshape(traj_stat_normalized,(traj_stat_normalized.size,1),'F').T  
+			euclidean_dist[k,0]=np.square(traj_stat_normalized-opt.utility).sum()
+			BhattDistance[k,0]=evaluateBhattacharyyaDist(traj_stat_normalized,erg.mu)
+			plt.pause(0.01)
