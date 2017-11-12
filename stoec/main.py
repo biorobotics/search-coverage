@@ -180,10 +180,9 @@ if __name__ == "__main__":
 				
 				tempx = np.array(full_trajectory)[:,0]
 				tempy = np.array(full_trajectory)[:,1]
-				print(tempx)
 				for indx in range(len(tempx)):
-					point_temp.x = tempx
-					point_temp.y = tempy
+					point_temp.x = tempx[indx]
+					point_temp.y = tempy[indx]
 					point_temp.theta = 0
 					pub.publish(point_temp)
 				
