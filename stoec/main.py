@@ -183,9 +183,9 @@ if __name__ == "__main__":
 				print(tempx)
 				for indx in range(len(tempx)):
 					point_temp.x = tempx
-			        point_temp.y = tempy
-			        point_temp.theta = 0
-					pub.pubish(point_temp)
+					point_temp.y = tempy
+					point_temp.theta = 0
+					pub.publish(point_temp)
 				
 				plt.plot(np.array(full_trajectory)[:,0],np.array(full_trajectory)[:,1])
 				plt.axis((opt.xmin,opt.xmax,opt.ymin,opt.ymax))
