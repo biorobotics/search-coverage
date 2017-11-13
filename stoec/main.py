@@ -80,12 +80,12 @@ def initialize_gen_traj_CE():
 
 if __name__ == "__main__":
 
-	pub = rospy.Publisher('/robot_traj', Float32MultiArray, queue_size=1000)
+	pub = rospy.Publisher('/robot_traj', Float32MultiArray, queue_size=10000)
 	rospy.init_node('search_coverage_node', anonymous=False)
 	pose_msg = Float32MultiArray()
 	while not rospy.is_shutdown():
 
-		r = rospy.Rate(1000)
+		r = rospy.Rate(100)
 		r.sleep()
 
 		agents=namedtuple('agents',['xi','xps','trajFigOPTIMAL','trajFig'])
@@ -177,7 +177,8 @@ if __name__ == "__main__":
 				xf=xs[-1,:]
 				agents.xi[iagent]=xf
 				# agents.xps[iagent]=np.concatenate(agents.xps[iagent],np.xs[1:,:])
-				full_trajectory = full_trajectory + xs.tolist()
+				#full_trajectory = full_trajectory + xs.tolist()
+				full_trajectory = xs.tolist()
 				
 				plt.figure(1)
 				
@@ -186,8 +187,9 @@ if __name__ == "__main__":
 				tempx = np.array(full_trajectory)[:,0]
 				tempy = np.array(full_trajectory)[:,1]
 			
-				if(cntr==0):
-					for indx in range(len(tempx)):
+				# if(cntr==0):
+				for indx in range(len(tempx)):
+					if(indx%20 == 0):
 						pose_msg.data = [tempx[indx],tempy[indx],0,0,0,0]
 						print(pose_msg.data)
 			 			pub.publish(pose_msg);
