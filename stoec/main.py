@@ -25,6 +25,8 @@ from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import Pose2D
 # from plot_initial import plot_initial
 
+cntr = 0
+
 def initialize_gen_traj_CE():
 	
 	opt=namedtuple('options',['xmin','xmax','ymin','ymax','Lx','Ly','dim','xlb','xub','ng','sn','dt','tf','X','Y','Z','xss','utility','nagents'
@@ -184,25 +186,12 @@ if __name__ == "__main__":
 				tempx = np.array(full_trajectory)[:,0]
 				tempy = np.array(full_trajectory)[:,1]
 			
-
-				for indx in range(len(tempx)):
-					pose_msg.data = [tempx[indx],tempy[indx],0,0,0,0]
-					print(pose_msg.data)
-				# pose_msg.data.append(tempx);
-		 	# 	pose_msg.data.append(tempy);
-		 	# 	pose_msg.data.append(0);
-		 	# 	pose_msg.data.append(0);
-		 	# 	pose_msg.data.append(0);
-		 	# 	pose_msg.data.append(0);
-		 	# 	# pose_msg.data.append(tempy[indx]);
-		 		# pose_msg.data.append(tempx[indx]);
-		 		# pose_msg.data.append(tempy[indx]);
-		 		
-		 			pub.publish(pose_msg);
-					# point_temp.x = tempx[indx]
-					# point_temp.y = tempy[indx]
-					# point_temp.theta = 0
-					# pub.publish(point_temp)
+				if(cntr==0):
+					for indx in range(len(tempx)):
+						pose_msg.data = [tempx[indx],tempy[indx],0,0,0,0]
+						print(pose_msg.data)
+			 			pub.publish(pose_msg);
+						cntr = cntr + 1
 				
 				plt.plot(np.array(full_trajectory)[:,0],np.array(full_trajectory)[:,1])
 				plt.axis((opt.xmin,opt.xmax,opt.ymin,opt.ymax))
