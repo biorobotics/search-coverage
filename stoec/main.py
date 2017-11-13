@@ -78,10 +78,13 @@ def initialize_gen_traj_CE():
 
 if __name__ == "__main__":
 
-	pub = rospy.Publisher('/robot_traj', Pose2D, queue_size=10)
+	pub = rospy.Publisher('/robot_traj', Float32MultiArray, queue_size=1000)
 	rospy.init_node('search_coverage_node', anonymous=False)
-	point_temp = Pose2D()
+	pose_msg = Float32MultiArray()
 	while not rospy.is_shutdown():
+
+		r = rospy.Rate(1000)
+		r.sleep()
 
 		agents=namedtuple('agents',['xi','xps','trajFigOPTIMAL','trajFig'])
 		gp_model=namedtuple('gaussian_processes',['mean','cov','lik','inf'])
@@ -180,11 +183,26 @@ if __name__ == "__main__":
 				
 				tempx = np.array(full_trajectory)[:,0]
 				tempy = np.array(full_trajectory)[:,1]
+			
+
 				for indx in range(len(tempx)):
-					point_temp.x = tempx[indx]
-					point_temp.y = tempy[indx]
-					point_temp.theta = 0
-					pub.publish(point_temp)
+					pose_msg.data = [tempx[indx],tempy[indx],0,0,0,0]
+					print(pose_msg.data)
+				# pose_msg.data.append(tempx);
+		 	# 	pose_msg.data.append(tempy);
+		 	# 	pose_msg.data.append(0);
+		 	# 	pose_msg.data.append(0);
+		 	# 	pose_msg.data.append(0);
+		 	# 	pose_msg.data.append(0);
+		 	# 	# pose_msg.data.append(tempy[indx]);
+		 		# pose_msg.data.append(tempx[indx]);
+		 		# pose_msg.data.append(tempy[indx]);
+		 		
+		 			pub.publish(pose_msg);
+					# point_temp.x = tempx[indx]
+					# point_temp.y = tempy[indx]
+					# point_temp.theta = 0
+					# pub.publish(point_temp)
 				
 				plt.plot(np.array(full_trajectory)[:,0],np.array(full_trajectory)[:,1])
 				plt.axis((opt.xmin,opt.xmax,opt.ymin,opt.ymax))
@@ -210,3 +228,5 @@ if __name__ == "__main__":
 			euclidean_dist[k,0]=np.square(traj_stat_normalized-opt.utility).sum()
 			BhattDistance[k,0]=evaluateBhattacharyyaDist(traj_stat_normalized,erg.mu)
 			plt.pause(0.01)
+
+		plt.close()		
